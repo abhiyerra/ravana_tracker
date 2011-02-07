@@ -1,38 +1,47 @@
+// Requires node_redis
+// npm install dht-bencode
+
 var http = require('http');
 var url = require('url');
-var redis = require("redis");
 
+var bencode = require('dht-bencode');
+var redis = require("redis");
 var redis_cli = redis.createClient();
 
+function isAllowedPeer(ip) {
+    var ret = true;
+
+    var checkBlacklist = function(err, reply) {
+        if(reply == 1) {
+            console.log("Denied: " + ip);
+            ret = false;
+        }
+    }
+
+    // TODO: Yes this doesn't work yet!
+    redis_cli.sismember("blacklist", ip, checkBlacklist);
+
+    return ret;
+}
+
 function handleAnnounce(parsed_url, res) {
+
     try {
-        var info_hash = parsed_url.query.info_hash
+        // Get the info_hash or die trying.
+        var info_hash = parsed_url.query.info_hash;
         console.log("info_hash " + info_hash);
 
         // This won't also work. Stupid scoping!
-        redis_cli.smembers(info_hash, function(err, replies) {
-            replies.forEach(function (reply, i) {
-                console.log("    " + i + ": " + reply + " " + res);
-                res.write(reply);
-            });
+        redis_cli.smembers(info_hash, function(err, peers) {
+            res.write(bencode.bencode(peers).toString());
+            res.end("\n");
         });
     } catch(err) {
         // Probably no info_hash.
-        console.log("Well fuck.");
+        console.log("Well fuck. No info_hash was not provided.");
     }
 }
 
-function isAllowedPeer(ip) {
-    // TODO: Yes this doesn't work yet!
-    redis_cli.sismember("blacklist", ip, function(err, reply) {
-        if(reply == 1) {
-            console.log("Fuck this guy: " + ip);
-            return false;
-        }
-    });
-
-    return true;
-}
 
 http.createServer(function (req, res) {
     console.log(req.url);
@@ -42,7 +51,7 @@ http.createServer(function (req, res) {
         var parsed_url = url.parse(req['url'], true)
         handleAnnounce(parsed_url, res);
     }
-    res.end("\n");
+
 }).listen(8124, "127.0.0.1");
 
-console.log('Server running at http://127.0.0.1:8124/');
+console.log('ravana_tracker running on http://127.0.0.1:8124/');
