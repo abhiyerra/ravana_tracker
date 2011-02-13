@@ -11,7 +11,6 @@ var redis = require("redis");
 var redis_cli = redis.createClient();
 
 
-
 function isAllowedPeer(ip) {
     // TODO: Yes this doesn't work yet!
     return redis_cli.sismember("blacklist", ip, function(err, reply) {
@@ -21,10 +20,6 @@ function isAllowedPeer(ip) {
             return false;
         }
     });
-}
-
-function trackPeer(req) {
-
 }
 
 function allowedTorrentClient(peer_id) {
