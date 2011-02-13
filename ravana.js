@@ -10,6 +10,8 @@ var bencode = require('dht-bencode');
 var redis = require("redis");
 var redis_cli = redis.createClient();
 
+
+
 function isAllowedPeer(ip) {
     // TODO: Yes this doesn't work yet!
     return redis_cli.sismember("blacklist", ip, function(err, reply) {
@@ -34,7 +36,7 @@ function allowedTorrentClient(peer_id) {
 function handleAnnounce(req, res) {
     trackPeer(req);
 
-    var parsed_url = url.parse(req['url'], true)
+    var parsed_url = url.parse(req['url'], true);
 
     try {
         var key = parsed_url.query.key;
@@ -95,19 +97,30 @@ function handleAnnounce(req, res) {
             left = parsed_url.query.left;
         }
 
+        var trackerid;
+        if(parsed_url.query.trackerid) {
+            trackerid = parsed_url.query.trackerid;
+        }
 
         console.log("info_hash " + info_hash);
 
-        // This won't also work. Stupid scoping!
-        redis_cli.smembers(info_hash, function(err, peers) {
-            res.write(bencode.bencode(peers).toString());
-            res.end("\n");
-        });
+        var response_dict = {
+            'interval': 30,
+            'tracker id': trackerid,
+        };
+
+        // TODO: This won't also work. Stupid scoping!
+        redis_cli.keys(key, function(err, keys) {
+            response_dict.complete = 0;
+            response_dict.incomplete = 0;
+            response_dict.peers = [];
 
         /*
          Shit to send:
 
          failure reason (if defined only send this.)
+
+         or
 
          interval
          tracker id
@@ -118,11 +131,35 @@ function handleAnnounce(req, res) {
            ip
            port
         */
+            keys.forEach(function(key) {
+                redis_cli.hmget(key, "left", "ip", "port", function(left, ip, port) {
+                    if(left == 0) {
+                        response_dict.complete += 1;
+                    } else {
+                        response_dict.incomplete += 1;
+                    }
+
+                    response_dict.peers.push({
+                        'peer id': 'NE',
+                        'ip': ip,
+                        'port': port
+                    });
+                });
+
+                res.write(bencode.bencode(response_dict).toString());
+                res.end("\n");
+            });
+        });
+
+
+
     } catch(err) {
-        // Probably no info_hash.
-        console.log("No info_hash was not provided.");
+        console.log("Shit hit the fan.");
 
-
+        res.write(bencode.bencode({
+            'failure reason': 'Shit hit the fan.'
+        }).toString());
+        res.end("\n");
     }
 }
 
@@ -131,6 +168,7 @@ http.createServer(function (req, res) {
     console.log(req.url);
 
     res.writeHead(200, {'Content-Type': 'text/plain'});
+
     if(req.url.match('/announce.*')) {
         if(isAllowedPeer(req.socket.remoteAddress)) {
             console.log("here");
@@ -138,6 +176,8 @@ http.createServer(function (req, res) {
         } else {
             res.end();
         }
+    } else {
+        res.end();
     }
 
 }).listen(8124, "127.0.0.1");
