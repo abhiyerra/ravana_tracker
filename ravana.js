@@ -14,10 +14,12 @@ var redis = require("redis"),
 var config = JSON.parse(fs.readFileSync("config.json"));
 
 function isAllowedPeer(peer_key) {
+    return true;
+
     // TODO: Yes this doesn't work yet!
-    return redis_cli.sismember("blacklist", ip, function(err, reply) {
+    return redis_cli.sismember("blacklist", peer_key, function(err, reply) {
         if(reply == 1) {
-            console.log("Denied: " + ip);
+            console.log("Denied: " + peer_key);
 
             return false;
         }
@@ -40,15 +42,17 @@ function updateDb(info_hash, peer_key, field, value) {
 function handleAnnounce(req, res) {
     //trackPeer(req);
 
-    console.log(req);
+    console.log(req.socket.remoteAddress);
 
     var parsed_url = url.parse(req['url'], true);
+
+    console.log(parsed_url);
 
     try {
         // We want a key so we can keep track of the peer on our
         // server.
         var peer_key = parsed_url.query.key;
-        if(!peer_key || !isAllowedPeer(key))
+        if(!peer_key || !isAllowedPeer(peer_key))
             throw "Need peer key or the peer isn't allowed.";
 
         // We need this so we can give the user the peers that contain
@@ -62,7 +66,7 @@ function handleAnnounce(req, res) {
         var peer_id = parsed_url.query.peer_id;
         if(!allowedTorrentClient(peer_id))
             throw "peer_id bad.";
-        updateDb(info_hash, key, "peer_id", peer_id);
+        updateDb(info_hash, peer_key, "peer_id", peer_id);
 
         // The number of peers to send. The default should be 30.
         var numwant = config.numwant;
@@ -76,42 +80,45 @@ function handleAnnounce(req, res) {
             // event: started, stopped, completed
             event = parsed_url.query.event;
         }
-        updateDb(info_hash, key, "event", event);
+        updateDb(info_hash, peer_key, "event", event);
 
+        console.log("test");
         // We want to get the peer's ip from the request. Otherwise
         // get it from the params.
-        var ip = req.GET_THE_IP;
+        var ip = req.socket.remoteAddress;
         if(parsed_url.query.ip) {
             ip = parsed_url.query.ip;
         }
-        updateDb(info_hash, key, "ip", ip);
+        updateDb(info_hash, peer_key, "ip", ip);
+
+
 
         var port;
         if(parsed_url.query.port) {
             port = parsed_url.query.port;
         }
-        updateDb(info_hash, key, "port", port);
+        updateDb(info_hash, peer_key, "port", port);
 
         var uploaded;
         if(parsed_url.query.uploaded) {
 
             uploaded = parsed_url.query.uploaded;
         }
-        updateDb(info_hash, key, "uploaded", uploaded);
+        updateDb(info_hash, peer_key, "uploaded", uploaded);
 
         var downloaded;
         if(parsed_url.query.downloaded) {
             downloaded = parsed_url.query.downloaded;
         }
-        updateDb(info_hash, key, "downloaded", downloaded);
+        updateDb(info_hash, peer_key, "downloaded", downloaded);
 
         var left;
         if(parsed_url.query.left) {
             left = parsed_url.query.left;
         }
-        updateDb(info_hash, key, "left", left);
+        updateDb(info_hash, peer_key, "left", left);
 
-        var trackerid;
+        var trackerid = '';
         if(parsed_url.query.trackerid) {
             trackerid = parsed_url.query.trackerid;
         }
@@ -123,8 +130,10 @@ function handleAnnounce(req, res) {
             'tracker id': trackerid,
         };
 
+        console.log(response_dict);
+
         // TODO: This won't also work. Stupid scoping!
-        redis_cli.keys(key, function(err, keys) {
+        redis_cli.keys(peer_key, function(err, keys) {
             response_dict.complete = 0;
             response_dict.incomplete = 0;
             response_dict.peers = [];
@@ -146,7 +155,7 @@ function handleAnnounce(req, res) {
               port
             */
             keys.forEach(function(key) {
-                redis_cli.hmget(key, "left", "ip", "port", function(left, ip, port) {
+                redis_cli.hmget(key, "left", "ip", "port", function(left, _ip, port) {
                     if(left == 0) {
                         response_dict.complete += 1;
                     } else {
@@ -155,10 +164,12 @@ function handleAnnounce(req, res) {
 
                     response_dict.peers.push({
                         'peer id': 'NE',
-                        'ip': ip,
+                        'ip': _ip,
                         'port': port
                     });
                 });
+
+//                console.log(response_dict);
 
                 res.write(bencode.bencode(response_dict).toString());
                 res.end("\n");
@@ -168,7 +179,7 @@ function handleAnnounce(req, res) {
 
 
     } catch(err) {
-        console.log("Shit hit the fan.");
+        console.log("Shit hit the fan. " + err);
 
         res.write(bencode.bencode({
             'failure reason': 'Shit hit the fan.'
