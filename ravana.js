@@ -9,7 +9,7 @@ var fs  = require('fs');
 
 var bencode = require('dht-bencode');
 var redis = require("redis"),
-redis_cli = redis.createClient();
+    redis_cli = redis.createClient();
 
 var config = JSON.parse(fs.readFileSync("config.json"));
 
@@ -44,26 +44,24 @@ function handleAnnounce(req, res) {
 
     var parsed_url = url.parse(req['url'], true);
 
-
     try {
         // We want a key so we can keep track of the peer on our
         // server.
         var peer_key = parsed_url.query.key;
         if(!peer_key || !isAllowedPeer(key))
-            throw "Need peer key or the peer isn't allowed."
+            throw "Need peer key or the peer isn't allowed.";
 
         // We need this so we can give the user the peers that contain
         // it.
         var info_hash = parsed_url.query.info_hash;
         if(!info_hash)
-            throw "Need info_hash"
+            throw "Need info_hash";
 
         // The client the the peer is using. We want to track this so
         // we can prevent gaming.
-        var peer_id = parsed_url.query.peer_id
-        if(!allowedTorrentClient(peer_id)) {
-            throw "peer_id bad."
-        }
+        var peer_id = parsed_url.query.peer_id;
+        if(!allowedTorrentClient(peer_id))
+            throw "peer_id bad.";
         updateDb(info_hash, key, "peer_id", peer_id);
 
         // The number of peers to send. The default should be 30.
@@ -186,16 +184,10 @@ http.createServer(function (req, res) {
     res.writeHead(200, {'Content-Type': 'text/plain'});
 
     if(req.url.match('/announce.*')) {
-        if(isAllowedPeer(req.socket.remoteAddress)) {
-            console.log("here");
-            handleAnnounce(req, res);
-        } else {
-            res.end();
-        }
+        handleAnnounce(req, res);
     } else {
         res.end();
     }
-
 }).listen(8124, "127.0.0.1");
 
 console.log('ravana_tracker running on http://127.0.0.1:8124/');
