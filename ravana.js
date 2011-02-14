@@ -78,8 +78,6 @@ function handleAnnounce(req, res) {
         }
         updateDb(info_hash, peer_key, "ip", ip);
 
-
-
         var port;
         if(parsed_url.query.port) {
             port = parsed_url.query.port;
