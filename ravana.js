@@ -13,19 +13,6 @@ var redis = require("redis"),
 
 var config = JSON.parse(fs.readFileSync("config.json"));
 
-function isAllowedPeer(peer_key) {
-    return true;
-
-    // TODO: Yes this doesn't work yet!
-    return redis_cli.sismember("blacklist", peer_key, function(err, reply) {
-        if(reply == 1) {
-            console.log("Denied: " + peer_key);
-
-            return false;
-        }
-    });
-}
-
 // Do we allow this client to connect.
 function allowedTorrentClient(peer_id) {
     if(config.allowed_peers.length == 0)
@@ -52,7 +39,7 @@ function handleAnnounce(req, res) {
         // We want a key so we can keep track of the peer on our
         // server.
         var peer_key = parsed_url.query.key;
-        if(!peer_key || !isAllowedPeer(peer_key))
+        if(!peer_key)
             throw "Need peer key or the peer isn't allowed.";
 
         // We need this so we can give the user the peers that contain
@@ -132,35 +119,17 @@ function handleAnnounce(req, res) {
 
         console.log(response_dict);
 
-        // TODO: This won't also work. Stupid scoping!
         redis_cli.keys(peer_key, function(err, keys) {
             response_dict.complete = 0;
             response_dict.incomplete = 0;
             response_dict.peers = [];
 
-            /*
-              Shit to send:
-
-              failure reason (if defined only send this.)
-
-              or
-
-              interval
-              tracker id
-              complete
-              incomplete
-              peers: (dict)
-              peer id (peer_id)
-              ip
-              port
-            */
             keys.forEach(function(key) {
                 redis_cli.hmget(key, "left", "ip", "port", function(left, _ip, port) {
-                    if(left == 0) {
+                    if(left == 0)
                         response_dict.complete += 1;
-                    } else {
+                    else
                         response_dict.incomplete += 1;
-                    }
 
                     response_dict.peers.push({
                         'peer id': 'NE',
@@ -169,7 +138,7 @@ function handleAnnounce(req, res) {
                     });
                 });
 
-//                console.log(response_dict);
+                console.log(response_dict);
 
                 res.write(bencode.bencode(response_dict).toString());
                 res.end("\n");
