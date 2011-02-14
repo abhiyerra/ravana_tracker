@@ -1,4 +1,4 @@
 {
-    'numwant': 30,
-    'allowed_peers': []
+    "numwant": 30,
+    "allowed_peers": []
 }
