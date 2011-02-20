@@ -21,107 +21,87 @@ function allowedTorrentClient(peer_id) {
     return false;
 }
 
-function updateDb(info_hash, peer_key, field, value) {
-    var hash_key = info_hash + ":" + peer_key;
-    redis_cli.hset(hash_key, field, value, redis.print);
+function updateDbForPeer(peer) {
+    for(var key in peer) {
+        console.log(key);
+    }
+
+    // var hash_key = info_hash + ":" + peer_key;
+    // console.log(hash_key);
+
+    // redis_cli.hset(hash_key, field, value, redis.print);
 }
 
 function handleAnnounce(req, res) {
     //trackPeer(req);
 
-    console.log(req.socket.remoteAddress);
+//    console.log(req.socket.remoteAddress);
 
     var parsed_url = url.parse(req['url'], true);
 
     console.log(parsed_url);
 
     try {
-        // We want a key so we can keep track of the peer on our
-        // server.
-        var peer_key = parsed_url.query.key;
-        if(!peer_key)
+        peer = {}
+
+        peer['peer_key'] = parsed_url.query.key;
+        if(!peer['peer_key'])
             throw "Need peer key or the peer isn't allowed.";
 
-        // We need this so we can give the user the peers that contain
-        // it.
-        var info_hash = parsed_url.query.info_hash;
-        if(!info_hash)
+        peer['info_hash'] = parsed_url.query.info_hash;
+        if(!peer['info_hash'])
             throw "Need info_hash";
 
-        // The client the the peer is using. We want to track this so
-        // we can prevent gaming.
-        var peer_id = parsed_url.query.peer_id;
-        if(!allowedTorrentClient(peer_id))
+        peer['peer_id'] = parsed_url.query.peer_id;
+        if(!allowedTorrentClient(peer['peer_id']))
             throw "peer_id bad.";
-        updateDb(info_hash, peer_key, "peer_id", peer_id);
 
-        // The number of peers to send. The default should be 30.
-        var numwant = config.numwant;
-        if(parsed_url.query.numwant) {
-            numwant = parsed_url.query.numwant;
-        }
+        peer['numwant'] = config.numwant;
+        if(parsed_url.query.numwant)
+            peer['numwant'] = parsed_url.query.numwant;
 
-        // What is the state of the peer.
-        var event;
-        if(parsed_url.query.event) {
-            // event: started, stopped, completed
-            event = parsed_url.query.event;
-        }
-        updateDb(info_hash, peer_key, "event", event);
+        if(parsed_url.query.event) // event: started, stopped, completed
+            peer['event'] = parsed_url.query.event;
 
-        console.log("test");
-        // We want to get the peer's ip from the request. Otherwise
-        // get it from the params.
-        var ip = req.socket.remoteAddress;
-        if(parsed_url.query.ip) {
-            ip = parsed_url.query.ip;
-        }
-        updateDb(info_hash, peer_key, "ip", ip);
+        peer['ip'] = req.socket.remoteAddress;
+        if(parsed_url.query.ip)
+            peer['ip'] = parsed_url.query.ip;
 
-        var port;
-        if(parsed_url.query.port) {
-            port = parsed_url.query.port;
-        }
-        updateDb(info_hash, peer_key, "port", port);
+        if(parsed_url.query.port)
+            peer['port'] = parsed_url.query.port;
 
-        var uploaded;
-        if(parsed_url.query.uploaded) {
+        if(parsed_url.query.uploaded)
+            peer['uploaded'] = parsed_url.query.uploaded;
 
-            uploaded = parsed_url.query.uploaded;
-        }
-        updateDb(info_hash, peer_key, "uploaded", uploaded);
+        if(parsed_url.query.downloaded)
+            peer['downloaded'] = parsed_url.query.downloaded;
 
-        var downloaded;
-        if(parsed_url.query.downloaded) {
-            downloaded = parsed_url.query.downloaded;
-        }
-        updateDb(info_hash, peer_key, "downloaded", downloaded);
+        if(parsed_url.query.left)
+            peer['left'] = parsed_url.query.left;
 
-        var left;
-        if(parsed_url.query.left) {
-            left = parsed_url.query.left;
-        }
-        updateDb(info_hash, peer_key, "left", left);
+        if(parsed_url.query.trackerid)
+            peer['trackerid'] = parsed_url.query.trackerid;
 
-        var trackerid = '';
-        if(parsed_url.query.trackerid) {
-            trackerid = parsed_url.query.trackerid;
-        }
+        peer['no_peer_id'] = !parsed_url.query.no_peer_id;
 
-        console.log("info_hash " + info_hash);
+        console.log(peer);
+
+        updateDbForPeer(peer);
 
         var response_dict = {
-            'interval': 30,
-            'tracker id': trackerid,
+            'interval': 10,
+            'tracker id': peer['trackerid'],
         };
 
-        console.log(response_dict);
-
-        redis_cli.keys(peer_key, function(err, keys) {
-            response_dict.complete = 0;
+        // Find all the peers that have the same info_hash and send it to the user.
+        redis_cli.keys(peer['info_hash'] + ":*", function(err, keys) {
+            response_dict.complete   = 0;
             response_dict.incomplete = 0;
-            response_dict.peers = [];
+            response_dict.peers      = [];
 
+            console.log("size" + keys.length);
+
+            // For each of the peers to the response_dict.
             keys.forEach(function(key) {
                 redis_cli.hmget(key, "left", "ip", "port", function(left, _ip, port) {
                     if(left == 0)
@@ -134,13 +114,17 @@ function handleAnnounce(req, res) {
                         'ip': _ip,
                         'port': port
                     });
+
+                    console.log(response_dict);
                 });
-
-                console.log(response_dict);
-
-                res.write(bencode.bencode(response_dict).toString());
-                res.end("\n");
             });
+
+            console.log(response_dict);
+
+            response = bencode.bencode(response_dict).toString()
+            console.log(response);
+
+            res.end(response);
         });
 
 
