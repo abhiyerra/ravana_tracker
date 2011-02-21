@@ -156,6 +156,9 @@ http.createServer(function (req, res) {
 
     if(req.url.match('/announce.*')) {
         handleAnnounce(req, res);
+    } else if(req.url.match('/scrape.*')) {
+        res.write("test");
+        res.end();
     } else {
         res.end();
     }
