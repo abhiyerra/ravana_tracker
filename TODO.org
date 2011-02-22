@@ -1,0 +1,68 @@
+* Design 1 [100%]
+  - [X] Start
+
+  - [X] Load up a whitelist/blacklist of clients from Redis.
+    - [X] This should be a list with a key (whitelist or blacklist).
+    - [X] If whitelist is empty null then everything is allowed.
+
+  - [X] Start a server on a random port.
+  - [X] Start listening for /announce [100%]
+    - [X] Parse the params to find out what info_hash is needed.
+    - [X] Look to see if it's an ip which is in the whitelist or blacklist.
+      - [X] If in blacklist then kill the connection.
+      - [ ] If in the whitelist then make sure it's not gaming the system.
+        - [ ] This has yet to be planned.
+    - [X] Look for an info_hash.
+    - [X] Look into redis for the particular info_hash
+      - [X] Redis Peer structure
+            "info_hash peer_id updated_timestamp"
+      - [X] There should be multiple keys per each hash so just get the latest one.
+    - [X] Bencode the list and return it.
+
+* Design 2 [100%]
+  - [X] peer (hash)
+        peer_key
+        info_hash
+        peer_id
+        numwant
+        event
+        ip
+        port
+        uploaded
+        downloaded
+        left
+
+  - [X] /announce
+    - [X] Do checking of parameters.
+    - [X] Return the correct dict
+
+* Design 3 [0%]
+
+{ peer_key: 'CAADFB24',
+  info_hash: 'S<����\u0012,o[ #\u0001��P<���',
+  peer_id: '-UM1020-�[4ޑY\u0003�\'��/',
+  numwant: '200',
+  ip: '127.0.0.1',
+  port: '64824',
+  uploaded: '0',
+  downloaded: '0',
+  left: '5120',
+  no_peer_id: true }
+
+  - [ ] Redis Layout
+    - [ ] separator
+          :\/\/:
+    - [ ] peer info
+      - [ ] Store it as info_hash + separator + peer_id (hash)
+      - [ ] Expire key after 2 days.
+      - [ ] Select by info_hash + separator
+
+  - [ ] /scrape
+
+  - [ ] /stats
+
+  - [ ] /replicate
+    - [ ] params: callback, auth_key, socket=false
+    - [ ] if socket return ip & port
+    - [ ] Store and do a push whenever updated
+

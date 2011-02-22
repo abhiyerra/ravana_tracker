@@ -44,8 +44,9 @@ function getPeerInfo(req) {
     var peer = {}
 
     peer['peer_key'] = parsed_url.query.key;
-    if(!peer['peer_key'])
-        throw "Need peer key or the peer isn't allowed.";
+    // TODO: Only needed in the situation of a private tracker.
+    // if(!peer['peer_key'])
+    //     throw "Need peer key or the peer isn't allowed.";
 
     peer['info_hash'] = parsed_url.query.info_hash;
     if(!peer['info_hash'])
@@ -142,17 +143,22 @@ function handleAnnounce(req, res) {
     }
 }
 
+function handleScrape(req, res) {
+    res.write("test");
+    res.end();
+}
 
 http.createServer(function (req, res) {
     console.log(req.url);
 
-    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.writeHead(200, {
+        'Content-Type': 'text/plain'
+    });
 
     if(req.url.match('/announce.*')) {
         handleAnnounce(req, res);
     } else if(req.url.match('/scrape.*')) {
-        res.write("test");
-        res.end();
+        handleScrape(req, res);
     } else {
         res.end();
     }
