@@ -3,29 +3,24 @@
 
 // http://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol
 
-var http = require('http');
-var url = require('url');
-var fs  = require('fs');
-
-var bencode = require('dht-bencode');
-var redis = require("redis"),
+var http      = require('http');
+var url       = require('url');
+var fs        = require('fs');
+var bencode   = require('dht-bencode');
+var redis     = require("redis"),
     redis_cli = redis.createClient();
 
 var config = JSON.parse(fs.readFileSync("config.json"));
-
-// Do we allow this client to connect.
-function allowedTorrentClient(peer_id) {
-    if(config.allowed_peers.length == 0)
-        return true;
-
-    return false;
-}
 
 /*
  * Save the peer request to the database.
  */
 function updatePeer(peer) {
     var data = peer['info_hash'] + ':' + peer['peer_key'];
+
+    // Save the peer to the info_hash
+
+    // Save the peer in a hash
 
     for(var key in peer) {
         console.log(key);
@@ -57,8 +52,6 @@ function getPeerInfo(req) {
         throw "Need info_hash";
 
     peer['peer_id'] = parsed_url.query.peer_id;
-    if(!allowedTorrentClient(peer['peer_id']))
-        throw "peer_id bad.";
 
     peer['numwant'] = config.numwant;
     if(parsed_url.query.numwant)
