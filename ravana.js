@@ -104,7 +104,7 @@ function handleAnnounce(req, res) {
             'complete': 0,
             'incomplete': 0,
             'peers': [],
-//          'tracker id': peer['trackerid'] || '',
+            'tracker id': peer['trackerid'] || "",
         };
 
         find_keys = peer['info_hash'] + ":*";
@@ -112,6 +112,7 @@ function handleAnnounce(req, res) {
         console.log("S" + find_keys);
 
         // Find all the peers that have the same info_hash and send it to the user.
+        // TODO: Need a better algorithm to generate these.
         redis_cli.keys(find_keys, function(err, keys) {
             // For each of the peers to the response_dict.
             keys.forEach(function(key) {
@@ -136,6 +137,7 @@ function handleAnnounce(req, res) {
             response = bencode.bencode(response_dict).toString()
             console.log(response);
             res.write(response);
+            res.end("\n");
         });
     } catch(err) {
         console.log("Shit hit the fan. " + err);
@@ -143,8 +145,7 @@ function handleAnnounce(req, res) {
         res.write(bencode.bencode({
             'failure reason': 'Shit hit the fan.'
         }).toString());
-    } finally {
-        res.end();
+        res.end("\n");
     }
 }
 
