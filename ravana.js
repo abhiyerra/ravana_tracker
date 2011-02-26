@@ -162,6 +162,6 @@ http.createServer(function (req, res) {
     } else {
         res.end();
     }
-}).listen(8124, "127.0.0.1");
+}).listen(config.port, config.host);
 
-console.log('ravana_tracker running on http://127.0.0.1:8124/');
+console.log("ravana_tracker running on http://" + config.host + ":" + config.port + "/");
